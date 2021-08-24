@@ -35,6 +35,18 @@ import subprocess
 
 import requests
 
+from google.cloud import storage
+import os
+def check_down():
+    file = os.path.isfile(os.getcwd()+'/Empty.pth')
+    if file is False:
+        storage_client = storage.Client()
+        bucket = storage_client.bucket('cabinet-object-detection')
+        blob = bucket.blob('Empty.pth')
+        blob.download_to_filename(os.getcwd()+'/Empty.pth')
+
+
+
 def headerblue(url): 
     st.markdown(f'<p style="color:#0f29f2;font-size:48px;border-radius:2%;"><center><strong>{url}</strong></center></p>', unsafe_allow_html=True)
     
@@ -97,6 +109,12 @@ def Compare_grid(plan, Grid):
         empty[p] = []
     
     for i,_ in enumerate(plan):
+        if i >= len(Grid):
+            for j,_ in enumerate(plan[i]):
+                empty[plan[i][j]].append([i,j])
+                plan[i][j] = "empty"
+            continue
+        
         for j,_ in enumerate(plan[i]):
             if len(Grid[i]) < j+1:
                 empty[plan[i][j]].append([i,j])
@@ -114,14 +132,14 @@ def Compare_grid(plan, Grid):
 
 def get_planogram():
     #### Get the Plano gram From FrontEnd
-    plan =[["can1","can1","can1","can1","can1","can1","can2","can2","can2","can2"],
-           ["can1","can1","can1","can1","can1","can1","can2","can2","can2","can2"],
-           ["can1","can1","can1","can1","can1","can1","can2","can2","can2","can2"],
-           ["can3","can3","can3","can3","can3","can3","can2","can2","can2","can2"],
-           ["can3","can3","can3","can3","can3","can3","can2","can2","can2","can2"],
-           ["can3","can3","can3","can3","can3","can3","can2","can2","can2","can2"],
-           ["can4","can4","can4","can4","can4","can4","can4","can4","can4","can4"],
-           ["can4","can4","can4","can4","can4","can4","can4","can4","can4","can4"]]
+    plan = [["Sprite","Sprite","Sprite","Sprite","Redbull","Redbull","Redbull","Redbull","Redbull","Redbull"],
+            ["Sprite","Sprite","Sprite","Sprite","Redbull","Redbull","Redbull","Redbull","Redbull","Redbull"],
+            ["Sprite","Sprite","Sprite","Sprite","Redbull","Redbull","Redbull","Redbull","Redbull","Redbull"],
+            ["Cola","Cola","Cola","Cola","Cola","Cola","Cola","Cola","Cola","Cola"],
+            ["Lime","Lime","Lime","Lime","Lime","Lime","Cola","Cola","Cola","Cola"],
+            ["Lime","Lime","Lime","Lime","Lime","Lime","Cola","Cola","Cola","Cola"],
+            ["Lime","Lime","Lime","Lime","Lime","Lime","Cola","Cola","Cola","Cola"],
+            ["Lime","Lime","Lime","Lime","Lime","Lime","Cola","Cola","Cola","Cola"]]
     return plan
 
 def detect(source,exclude = [-1,-1,-1,-1],save_img=False,croped = None):
@@ -362,6 +380,7 @@ def detect(source,exclude = [-1,-1,-1,-1],save_img=False,croped = None):
     return Image.fromarray(image)
 
 if __name__ == "__main__":
+    check_down()
     col1, col2, col3 = st.beta_columns([2,6,1])
 
     with col1:
@@ -519,7 +538,7 @@ if __name__ == "__main__":
 #                         planogram[x][y] = obj['name']
 
                 planogram = get_planogram()
-                _,filled,empty = Compare_grid(planogram,Grid)
+                planogram,filled,empty = Compare_grid(planogram,Grid)
                 
                 video.release()
                 out.release()
@@ -538,14 +557,91 @@ if __name__ == "__main__":
                 
                 st.video(video_bytes)
                 
-                st.write("Empty Co-ordinates")
-                print("Missing Items")
-                print(empty)
-                st.write(empty)
-                st.write("Filled Co-ordinates")
-                print("Items Present")
-                print(filled)
-                st.write(filled)
+#                 st.write("Empty Co-ordinates")
+#                 print("Missing Items")
+#                 print(empty)
+#                 st.write(empty)
+#                 st.write("Filled Co-ordinates")
+#                 print("Items Present")
+#                 print(filled)
+#                 st.write(filled)
+                
+                st.header("Summary")
+                st.write()
+                st.markdown('**_Items for Refiling_**')
+                
+                for item,co in empty.items():
+                    smry = item
+                    if len(co) == 0:
+                        smry +=" is Fully stacked"
+                    smry += " needs refilling at co-ordinates: "
+                    for i,j in co:
+                        smry += "{"+str(i)+","+str(j)+"} "
+                    
+                    st.write(smry)
+                    
+                st.write()
+                st.markdown('**_Items Stocked_**')
+                
+                for item,co in filled.items():
+                    smry = item
+                    if len(co) == 0:
+                        smry +=" is Fully stacked"
+                    smry += " Stocked at co-ordinates: "
+                    for i,j in co:
+                        smry += "{"+str(i)+","+str(j)+"} "
+                    
+                    st.write(smry)
+                    
+                    
+                plan = get_planogram()
+
+                stock = planogram
+
+                color = {
+                        "Sprite":(9, 171, 14),
+                        "Redbull":(209, 50, 25),
+                        "Lime":(231, 14, 235),
+                        "Cola":(16, 16, 232),
+                }
+
+                    # Creating a black image with 3
+                    # channels RGB and unsigned int datatype
+                img = np.full((400, 400, 3),255, dtype = "uint8")
+                img[:,:] = [218, 218, 227]
+                width = 400/9
+                s_width = width/2
+                height = 400/7
+                s_height = 400/10
+                    # writing text
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                for i,r in enumerate(plan):
+                        for j,c in enumerate(r):
+                                cv2.putText(img, plan[i][j], (int(s_width+(s_width+15)*j), int(s_height+s_height*i)),
+                                        font, 0.3, color[plan[i][j]], 1, cv2.LINE_AA)
+
+
+                finalimg = np.full((400, 400, 3),255, dtype = "uint8")
+                finalimg[:,:] = [218, 218, 227]
+                for i,r in enumerate(plan):
+                        for j,c in enumerate(r):
+                                if stock[i][j] == "empty":
+                                        cv2.putText(finalimg, plan[i][j], (int(s_width+(s_width+15)*j), int(s_height+s_height*i)),
+                                                font, 0.3, (0,0,0), 1, cv2.LINE_AA)
+                                        continue
+
+
+                                cv2.putText(finalimg, plan[i][j], (int(s_width+(s_width+15)*j), int(s_height+s_height*i)),
+                                            font, 0.3, color[plan[i][j]], 1, cv2.LINE_AA)
+                
+                image = cv2.hconcat([img,finalimg])
+                
+                
+                col1,col2 = st.beta_columns(2)
+                st.title("Comparision Result")
+
+                st.image(image)
+                
             
                 
 #                 video_file = open('./frame/out_st_plano.mp4','rb')

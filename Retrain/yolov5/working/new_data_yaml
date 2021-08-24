@@ -1,0 +1,7 @@
+
+        train: ./working/data/images/train
+        val: ./working/data/images/valid
+
+        nc: 1
+        names: ['cans']
+        

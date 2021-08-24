@@ -1,0 +1,5 @@
+train: /working/data/images/train
+val: /working/data/images/train
+
+nc: 1
+names: ['can']
